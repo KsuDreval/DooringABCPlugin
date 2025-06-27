@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.10.35122.118
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DooringABCPlugin", "PluginTemplate\DooringABCPlugin.csproj", "{DAD6903A-658C-46D0-9A0B-54A9904F47E5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ABCTrainingTask", "ABCTrainingTask\ABCTrainingTask.csproj", "{324ECB01-98CE-5D17-734C-51544EE556E9}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{DAD6903A-658C-46D0-9A0B-54A9904F47E5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DAD6903A-658C-46D0-9A0B-54A9904F47E5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DAD6903A-658C-46D0-9A0B-54A9904F47E5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DAD6903A-658C-46D0-9A0B-54A9904F47E5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{324ECB01-98CE-5D17-734C-51544EE556E9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{324ECB01-98CE-5D17-734C-51544EE556E9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{324ECB01-98CE-5D17-734C-51544EE556E9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{324ECB01-98CE-5D17-734C-51544EE556E9}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {20E64219-FB29-4BC6-A653-ABE46A0C7320}
+	EndGlobalSection
+EndGlobal

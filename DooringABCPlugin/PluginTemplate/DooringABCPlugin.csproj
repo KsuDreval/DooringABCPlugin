@@ -1,0 +1,24 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="E5.PlatformBase" Version="*" />
+    <PackageReference Include="E5.WmsBase" Version="*" />
+  </ItemGroup>
+	<ItemGroup>
+		<None Update="manifest.json">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+	</ItemGroup>
+
+	<Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="'$(OS)' == 'Windows_NT'">
+		<Exec Command="if not exist ..\..\WHEventService\bin\Debug\net8.0\Plugins mkdir ..\..\WHEventService\bin\Debug\net8.0\Plugins&#xD;&#xA;if not exist ..\..\DataManager\bin\Debug\net8.0\Plugins mkdir ..\..\DataManager\bin\Debug\net8.0\Plugins&#xD;&#xA;if $(ConfigurationName) == Debug (&#xD;&#xA;  powershell Compress-Archive -Path $(OutDir)$(TargetName)$(TargetExt), .\manifest.json -DestinationPath $(OutDir)$(TargetName).zip -Force&#xD;&#xA;  powershell Copy-Item -Path $(OutDir)$(TargetName).zip -Destination ..\..\DataManager\bin\Debug\net8.0\Plugins\$(TargetName).plg&#xD;&#xA;  powershell Copy-Item -Path $(OutDir)$(TargetName).zip -Destination ..\..\WHEventService\bin\Debug\net8.0\Plugins\$(TargetName).plg&#xD;&#xA;)" />
+	</Target>
+	
+
+</Project>
