@@ -7,8 +7,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="E5.PlatformBase" Version="*" />
-    <PackageReference Include="E5.WmsBase" Version="*" />
+    <PackageReference Include="E5.PlatformBase" Version="1.0.0" />
+    <PackageReference Include="E5.WmsBase" Version="1.0.0" />
   </ItemGroup>
 	<ItemGroup>
 		<None Update="manifest.json">

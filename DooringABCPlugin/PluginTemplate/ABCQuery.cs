@@ -1,5 +1,11 @@
 ﻿using System;
+using Microsoft.Extensions.Logging;
 using Npgsql;
+using PluginsTemplates;
+using WMS5.CoreBase.Interfaces.Services;
+using WMS5.DataModel.Dictionaries.Storage;
+using WMS5.DataModelBase.Base;
+using WMS5.Infrastructure.Attributes;
 
 public class ABC
 {
@@ -13,9 +19,18 @@ public class ABC
     public DateTime periodStart;
     public DateOnly periodEnd;
 }
-class ABCQuery
+public class ABCQuery
 {
-    
+    [Autowire]
+    public IDictionaryManagerResolver DictionaryManager { get; set; }
+
+    [Autowire]
+    public ILogger<ABCQuery> Logger { get; set; }
+
+    [Autowire]
+    public IEntityManagerResolver EntityManager { get; set; }
+
+    DateTime DateOfAnalysis;
     //запрос в бд
     string queryString = $@"WITH 
                 -- Все SKU из таблицы товаров с нужными полями
@@ -140,20 +155,23 @@ values (default, @CommodityName, @TotalQuantity, @QuantityPercentage, @Cumulativ
 
     public void WriteToDictionary(List<ABC> list)
     {
-        Log($"WriteToDictionary(): start. Список содержит {list.Count} элементов");
-        Log("WriteToDictionary(): end.");
+        Logger.LogInformation($"WriteToDictionary(): start. Список содержит {list.Count} элементов");
+        foreach (ABC item in list)
+        {
+            AbcClassification abc = new AbcClassification();
+            abc.DateOfAnalysis = DateOfAnalysis;
+            abc.AbcClass = item.abcCategory;
+            abc.PeriodStart = item.periodStart;
+            abc.PeriodEnd = item.periodEnd.ToDateTime(TimeOnly.MinValue);
+            abc.SKU = new DictionaryRef<SKU>(Guid.Parse(item.skuUuid));
+            DictionaryManager.CreateOrUpdate(WMSType.GetMaster<AbcClassification>(), abc);
+        }
+        Logger.LogInformation("WriteToDictionary(): end.");
     }
 
     public void WriteDataBase(List<ABC> list, string connectionString)
     {
-        Log($"WriteDataBase(): start  Список содержит {list.Count} элементов");
-        //обернуть все в try catch
-        //открыть соединение с бд
-        //пробежаться по всем элментам листа (можно foreach){
-        //создать sql-комманду для записи строки в бд
-        //выполнить sql-комманду
-        //закрыть sql-комманду}
-        //закрыть соединение с бд
+        Logger.LogInformation($"WriteDataBase(): start  Список содержит {list.Count} элементов");
         try
         {
             NpgsqlConnection conn = new NpgsqlConnection(connectionString);
@@ -177,32 +195,32 @@ values (default, @CommodityName, @TotalQuantity, @QuantityPercentage, @Cumulativ
                 }
                 catch (Exception ex)
                 {
-                    Log(ex.Message);
+                    Logger.LogError(ex.Message);
                 }
             }
-            Console.WriteLine("OK");
             conn.Close();
         }
         catch (Exception ex)
         {
-            Log(ex.Message);
+            Logger.LogError(ex.Message);
         }
-        Log("WriteDataBase(): end");
+        Logger.LogInformation("WriteDataBase(): end");
 
     }
 
     public List<ABC> ReadDataBase(double A, double B, int period, string connectionString)
     {
-        Log($"WriteDataBase(): start A = {A}, B = {B}, period = {period}, connection string = {connectionString}");
+        Logger.LogInformation($"WriteDataBase(): start A = {A}, B = {B}, period = {period}, connection string = {connectionString}");
 
         List<ABC> list = new List<ABC>();
+        DateOfAnalysis = DateTime.Now;
         try
         {
 
             NpgsqlConnection conn = new NpgsqlConnection(connectionString);
             conn.Open();
             string preparedString = string.Format(connectionString, period, A, B);
-            Log($"Выполняю запрос {preparedString}");
+            Logger.LogInformation($"Выполняю запрос {preparedString}");
             NpgsqlCommand cmd = new NpgsqlCommand(queryString, conn);
 
             NpgsqlDataReader reader = cmd.ExecuteReader();
@@ -227,13 +245,9 @@ values (default, @CommodityName, @TotalQuantity, @QuantityPercentage, @Cumulativ
         }
         catch (Exception ex)
         {
-            Log(ex.Message);
+            Logger.LogError(ex.Message);
         }
-        Log("WriteDataBase(): end");
+        Logger.LogInformation("WriteDataBase(): end");
         return list;
-    }
-    public static void Log(string msg)
-    {
-        Console.WriteLine(msg);
     }
 }

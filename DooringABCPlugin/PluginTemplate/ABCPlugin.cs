@@ -1,8 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Metadata.Internal;
-using Microsoft.Extensions.Logging;
-using WMS5.Core.Interfaces.Services;
-using WMS5.Core.Interfaces.Services.Tasks;
-using WMS5.CoreBase.Interfaces.Services;
+﻿using Microsoft.Extensions.Logging;
 using WMS5.Infrastructure.Attributes;
 using WMS5.Infrastructure.Attributes.RestMethodAttribute;
 using WMS5.Infrastructure.Helpers;
@@ -20,26 +16,12 @@ public class ABCPlugin
     private double A = 0.85;
     private double B = 0.7;
     private int period = 7;
-    [Autowire]
-    public IEntityManagerResolver EntityManager { get; set; }
-
-    [Autowire]
-    public ITaskManager TaskManager { get; set; }
-
-    [Autowire]
-    public ILockManager LockManager { get; set; }
 
     [Autowire]
     public IPluginRepository PluginRepository { get; set; }
 
     [Autowire]
     public ILogger<ABCPlugin> Logger { get; set; }
-
-    [Autowire]
-    public IDictionaryManagerResolver DictionaryManager { get; set; }
-
-    [Autowire]
-    public IProcessOperationLocationMovementTask LocationMovementClient { get; set; }
 
     private void getParameters()
     {
@@ -56,8 +38,6 @@ public class ABCPlugin
         args.TryGetValue(nameof(connectionString), out connectionString);
     }
 
-    //атрибут обозначает, что данный метод будет доступен, как метод плагина
-    //PluginConstants.UserWebAPI озночает, что данные метод будет вызываться через WebApi (например: Postman)
     [PluginMethod(PluginConstants.UserWebAPI, "GetABC", "")]
     //атрибут определяет url для вызова метода, в данном случае http://{ip:port Датаменеджера}/GetABC
     [MethodPost("GetABC")]
@@ -76,11 +56,13 @@ public class ABCPlugin
 
     public void internalGetABC()
     {
+        Logger.LogInformation($"{nameof(ABCPlugin)} started");
         getParameters();
         ABCQuery aBCQuery = new ABCQuery();
         List<ABC> list = aBCQuery.ReadDataBase(A, B, period, connectionString);
         aBCQuery.WriteDataBase(list, connectionString);
         aBCQuery.WriteToDictionary(list);
+        Logger.LogInformation($"{nameof(ABCPlugin)} finished");
     }
 
 }

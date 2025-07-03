@@ -8,6 +8,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="E5.PlatformBase" Version="1.0.0" />
+    <PackageReference Include="E5.WmsBase" Version="1.0.0" />
     <PackageReference Include="Npgsql" Version="9.0.3" />
   </ItemGroup>
 
