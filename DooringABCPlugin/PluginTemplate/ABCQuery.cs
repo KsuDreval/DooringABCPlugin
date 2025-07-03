@@ -1,7 +1,5 @@
-﻿using System;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Npgsql;
-using PluginsTemplates;
 using WMS5.CoreBase.Interfaces.Services;
 using WMS5.DataModel.Dictionaries.Storage;
 using WMS5.DataModelBase.Base;
