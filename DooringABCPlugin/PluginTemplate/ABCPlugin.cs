@@ -36,6 +36,7 @@ public class ABCPlugin
         args.TryGetValue(nameof(period), out strperiod);
         int.TryParse(strperiod, out period);
         args.TryGetValue(nameof(connectionString), out connectionString);
+        Logger.LogInformation($"Получены настройки: A: {A}, B: {B}, Period: {period}, ConnectionString: {connectionString}");
     }
 
     [PluginMethod(PluginConstants.UserWebAPI, "GetABC", "")]

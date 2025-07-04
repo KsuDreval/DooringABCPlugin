@@ -25,9 +25,6 @@ public class ABCQuery
     [Autowire]
     public ILogger<ABCQuery> Logger { get; set; }
 
-    [Autowire]
-    public IEntityManagerResolver EntityManager { get; set; }
-
     DateTime DateOfAnalysis;
     //запрос в бд
     string queryString = $@"WITH 
@@ -151,6 +148,7 @@ public class ABCQuery
 values (default, @CommodityName, @TotalQuantity, @QuantityPercentage, @CumulativePercentage, @ABCCategory, @SKUUUID, @SKUDomain, @PeriodStart, @PeriodEnd)";
 
 
+    //запись информации в справочник
     public void WriteToDictionary(List<ABC> list)
     {
         Logger.LogInformation($"WriteToDictionary(): start. Список содержит {list.Count} элементов");
@@ -167,6 +165,7 @@ values (default, @CommodityName, @TotalQuantity, @QuantityPercentage, @Cumulativ
         Logger.LogInformation("WriteToDictionary(): end.");
     }
 
+    //запись информации в таблицу в БД
     public void WriteDataBase(List<ABC> list, string connectionString)
     {
         Logger.LogInformation($"WriteDataBase(): start  Список содержит {list.Count} элементов");
@@ -193,22 +192,23 @@ values (default, @CommodityName, @TotalQuantity, @QuantityPercentage, @Cumulativ
                 }
                 catch (Exception ex)
                 {
-                    Logger.LogError(ex.Message);
+                    Logger.LogError(ex, "Error in function WriteDataBase()");
                 }
             }
             conn.Close();
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex.Message);
+            Logger.LogError(ex, "Error in function WriteDataBase()");
         }
         Logger.LogInformation("WriteDataBase(): end");
 
     }
 
+    //чтение таблицы, полученной sql-запросом
     public List<ABC> ReadDataBase(double A, double B, int period, string connectionString)
     {
-        Logger.LogInformation($"WriteDataBase(): start A = {A}, B = {B}, period = {period}, connection string = {connectionString}");
+        Logger.LogInformation($"ReadDataBase(): start A = {A}, B = {B}, period = {period}, connection string = {connectionString}");
 
         List<ABC> list = new List<ABC>();
         DateOfAnalysis = DateTime.Now;
@@ -243,9 +243,9 @@ values (default, @CommodityName, @TotalQuantity, @QuantityPercentage, @Cumulativ
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex.Message);
+            Logger.LogError(ex, "Error in function ReadDataBase()");
         }
-        Logger.LogInformation("WriteDataBase(): end");
+        Logger.LogInformation("ReadDataBase(): end");
         return list;
     }
 }
