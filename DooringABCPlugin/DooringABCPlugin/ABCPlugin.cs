@@ -1,14 +1,16 @@
 ﻿using Microsoft.Extensions.Logging;
 using WMS5.Infrastructure.Attributes;
 using WMS5.Infrastructure.Attributes.RestMethodAttribute;
+using WMS5.Infrastructure.DataStructures.Request;
+using WMS5.Infrastructure.DataStructures.Result;
 using WMS5.Infrastructure.Helpers;
 using WMS5.Infrastructure.Services;
 
 
-namespace PluginsTemplates;
+namespace DooringABCPlugin;
 
 
-[PluginClass("1.0.0")]
+[PluginClass("1.0.3")]
 public class ABCPlugin
 {
     //строка для подключения
@@ -42,14 +44,19 @@ public class ABCPlugin
     [PluginMethod(PluginConstants.UserWebAPI, "GetABC", "")]
     //атрибут определяет url для вызова метода, в данном случае http://{ip:port Датаменеджера}/GetABC
     [MethodPost("GetABC")]
-    public void GetABC()
+    public RawRestResult GetABC(PostRequest<string> request)
     {
         internalGetABC();
+        RawRestResult result = new RawRestResult();
+        result.ResultCode = 200;
+        result.Body = "OK";
+
+        return result;
     }
 
     //атрибут обозначает, что данный метод будет доступен, как метод плагина
     //PluginConstants.UserWebAPI озночает, что данные метод будет вызываться через WebApi (например: Postman)
-    [PluginMethod]
+    [PluginMethod(PluginConstants.RegularOperation, nameof(ReglamentGetABC), "Регламентное выполнение ABC анализа")]
     public void ReglamentGetABC()
     {
         internalGetABC();
