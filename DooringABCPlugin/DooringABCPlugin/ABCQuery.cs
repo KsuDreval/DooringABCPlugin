@@ -1,9 +1,12 @@
 ﻿using Microsoft.Extensions.Logging;
 using Npgsql;
+using WMS5.CoreBase.Extensions;
 using WMS5.CoreBase.Interfaces.Services;
 using WMS5.DataModel.Dictionaries.Storage;
 using WMS5.DataModelBase.Base;
 using WMS5.Infrastructure.Attributes;
+
+namespace DooringABCPlugin;
 
 public class ABC
 {
@@ -19,15 +22,13 @@ public class ABC
 }
 public class ABCQuery
 {
-    [Autowire]
     public IDictionaryManagerResolver DictionaryManager { get; set; }
 
-    [Autowire]
-    public ILogger<ABCQuery> Logger { get; set; }
+    public ILogger<ABCPlugin> Logger { get; set; }
 
     DateTime DateOfAnalysis;
     //запрос в бд
-    string queryString = $@"WITH 
+    string queryString = @"WITH 
                 -- Все SKU из таблицы товаров с нужными полями
                 all_skus AS (
                     SELECT 
@@ -138,8 +139,8 @@ public class ABCQuery
                 ORDER BY 
                     CASE 
                         WHEN was_shipped = 0 THEN 4 -- Категория D в конце
-                        WHEN cumulative_quantity_share <= 0.8 THEN 1
-                        WHEN cumulative_quantity_share <= 0.95 THEN 2
+                        WHEN cumulative_quantity_share <= {3} THEN 1
+                        WHEN cumulative_quantity_share <= {4} THEN 2
                         ELSE 3
                     END,
                     TotalQuantity DESC; ";
@@ -152,15 +153,30 @@ values (default, @CommodityName, @TotalQuantity, @QuantityPercentage, @Cumulativ
     public void WriteToDictionary(List<ABC> list)
     {
         Logger.LogInformation($"WriteToDictionary(): start. Список содержит {list.Count} элементов");
-        foreach (ABC item in list)
+        try
         {
-            AbcClassification abc = new AbcClassification();
-            abc.DateOfAnalysis = DateOfAnalysis;
-            abc.AbcClass = item.abcCategory;
-            abc.PeriodStart = item.periodStart;
-            abc.PeriodEnd = item.periodEnd.ToDateTime(TimeOnly.MinValue);
-            abc.SKU = new DictionaryRef<SKU>(Guid.Parse(item.skuUuid));
-            DictionaryManager.CreateOrUpdate(WMSType.GetMaster<AbcClassification>(), abc);
+            foreach (ABC item in list)
+            {
+                AbcClassification abc = (AbcClassification)(DictionaryManager.GetByCode(WMSType.GetMaster<AbcClassification>(), item.skuUuid));
+                AbcClassification abcClone = new AbcClassification();
+                abc.CloneTo(abcClone);
+                if (abcClone == null)
+                {
+                    abcClone = new AbcClassification();
+                    abcClone.UUID = Guid.NewGuid();
+                    abcClone.Code = item.skuUuid;
+                }
+                abcClone.DateOfAnalysis = DateOfAnalysis;
+                abcClone.AbcClass = item.abcCategory;
+                abcClone.PeriodStart = item.periodStart;
+                abcClone.PeriodEnd = item.periodEnd.ToDateTime(TimeOnly.MinValue);
+                abcClone.SKU = new DictionaryRef<SKU>(Guid.Parse(item.skuUuid));
+                DictionaryManager.CreateOrUpdate(WMSType.GetMaster<AbcClassification>(), abcClone);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error CreateOrUpdate");
         }
         Logger.LogInformation("WriteToDictionary(): end.");
     }
@@ -172,13 +188,13 @@ values (default, @CommodityName, @TotalQuantity, @QuantityPercentage, @Cumulativ
         try
         {
             NpgsqlConnection conn = new NpgsqlConnection(connectionString);
-            NpgsqlCommand cmd = new NpgsqlCommand(insertString, conn);
             conn.Open();
 
             foreach (ABC line in list)
             {
                 try
                 {
+                    NpgsqlCommand cmd = new NpgsqlCommand(insertString, conn);
                     cmd.Parameters.AddWithValue("@CommodityName", line.commodityName);
                     cmd.Parameters.AddWithValue("@TotalQuantity", line.totalQuantity);
                     cmd.Parameters.AddWithValue("@QuantityPercentage", line.quantityPercentage);
@@ -214,12 +230,11 @@ values (default, @CommodityName, @TotalQuantity, @QuantityPercentage, @Cumulativ
         DateOfAnalysis = DateTime.Now;
         try
         {
-
             NpgsqlConnection conn = new NpgsqlConnection(connectionString);
             conn.Open();
-            string preparedString = string.Format(connectionString, period, A, B);
+            string preparedString = string.Format(queryString, period, A.ToString().Replace(',', '.'), B.ToString().Replace(',', '.'), A.ToString().Replace(',', '.'), B.ToString().Replace(',', '.'));
             Logger.LogInformation($"Выполняю запрос {preparedString}");
-            NpgsqlCommand cmd = new NpgsqlCommand(queryString, conn);
+            NpgsqlCommand cmd = new NpgsqlCommand(preparedString, conn);
 
             NpgsqlDataReader reader = cmd.ExecuteReader();
 
@@ -237,7 +252,6 @@ values (default, @CommodityName, @TotalQuantity, @QuantityPercentage, @Cumulativ
                 abc.periodEnd = DateOnly.Parse(reader["PeriodEnd"].ToString().Substring(0, 10));
                 list.Add(abc);
             }
-            Console.WriteLine("OK");
             reader.Close();
             conn.Close();
         }
@@ -245,7 +259,7 @@ values (default, @CommodityName, @TotalQuantity, @QuantityPercentage, @Cumulativ
         {
             Logger.LogError(ex, "Error in function ReadDataBase()");
         }
-        Logger.LogInformation("ReadDataBase(): end");
+        Logger.LogInformation($"ReadDataBase(): end");
         return list;
     }
 }
