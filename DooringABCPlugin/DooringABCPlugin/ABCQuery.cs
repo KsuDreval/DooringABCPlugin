@@ -4,7 +4,6 @@ using WMS5.CoreBase.Extensions;
 using WMS5.CoreBase.Interfaces.Services;
 using WMS5.DataModel.Dictionaries.Storage;
 using WMS5.DataModelBase.Base;
-using WMS5.Infrastructure.Attributes;
 
 namespace DooringABCPlugin;
 
@@ -27,7 +26,7 @@ public class ABCQuery
     public ILogger<ABCPlugin> Logger { get; set; }
 
     DateTime DateOfAnalysis;
-    //запрос в бд
+    //запрос в бд для чтения
     string queryString = @"WITH 
                 -- Все SKU из таблицы товаров с нужными полями
                 all_skus AS (
@@ -38,6 +37,8 @@ public class ABCQuery
                         s.""domain"" AS sku_domain
                     FROM 
                         sku s
+                    WHERE 
+                        s.""domain"" = '{5}'
                 ),-- Определяем дату начала периода (последние 7 дней)
                 date_range AS (
                     SELECT 
@@ -222,7 +223,7 @@ values (default, @CommodityName, @TotalQuantity, @QuantityPercentage, @Cumulativ
     }
 
     //чтение таблицы, полученной sql-запросом
-    public List<ABC> ReadDataBase(double A, double B, int period, string connectionString)
+    public List<ABC> ReadDataBase(double A, double B, int period, string connectionString, string domainStr)
     {
         Logger.LogInformation($"ReadDataBase(): start A = {A}, B = {B}, period = {period}, connection string = {connectionString}");
 
@@ -232,7 +233,7 @@ values (default, @CommodityName, @TotalQuantity, @QuantityPercentage, @Cumulativ
         {
             NpgsqlConnection conn = new NpgsqlConnection(connectionString);
             conn.Open();
-            string preparedString = string.Format(queryString, period, A.ToString().Replace(',', '.'), B.ToString().Replace(',', '.'), A.ToString().Replace(',', '.'), B.ToString().Replace(',', '.'));
+            string preparedString = string.Format(queryString, period, A.ToString().Replace(',', '.'), B.ToString().Replace(',', '.'), A.ToString().Replace(',', '.'), B.ToString().Replace(',', '.'), domainStr);
             Logger.LogInformation($"Выполняю запрос {preparedString}");
             NpgsqlCommand cmd = new NpgsqlCommand(preparedString, conn);
 

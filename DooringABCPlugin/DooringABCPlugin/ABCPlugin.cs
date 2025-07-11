@@ -9,14 +9,14 @@ using WMS5.Infrastructure.DataStructures.Result;
 using WMS5.Infrastructure.Definitions;
 using WMS5.Infrastructure.Helpers;
 using WMS5.Infrastructure.Services;
-using static WMS5.Infrastructure.DataStructures.Settings;
 
 
 namespace DooringABCPlugin;
 
 
-[PluginClass("1.0.30")]
+[PluginClass("1.0.57")]
 [SpecificNodePlugin(ComponentTypes.DataManager)]
+[SpecificNodePlugin(ComponentTypes.WHEventService)]
 public class ABCPlugin
 {
     //строка для подключения
@@ -24,6 +24,7 @@ public class ABCPlugin
     private double A = 0.85;
     private double B = 0.7;
     private int period = 7;
+    private string domain;
 
     [Autowire]
     public IDictionaryManagerResolver DictionaryManager { get; set; }
@@ -34,12 +35,19 @@ public class ABCPlugin
     [Autowire]
     public ILogger<ABCPlugin> Logger { get; set; }
 
-    private void getParameters()
+    //Получение настроек плагина
+    private bool getParameters()
     {
-        Dictionary<string, string> args = PluginRepository.GetPluginConfig(nameof(DooringABCPlugin));
+        ExecutionContextHelper.DomainId = Guid.Parse(domain);
+        Dictionary<string, string> args = PluginRepository.GetPluginConfig("ABCPlugin");
 
-        if (args is not null)
+        if (args == null)
         {
+            Logger.LogError("gatParameters(): не указаны настройки");
+            return false;
+        }
+        if (args is not null)
+        { 
             if (args.TryGetValue(nameof(A), out string strA) && double.TryParse(strA, out double AValue))
                 A = AValue;
             if (args.TryGetValue(nameof(B), out string strB) && double.TryParse(strB, out double BValue))
@@ -49,17 +57,18 @@ public class ABCPlugin
             if (args.TryGetValue(nameof(connectionString), out string connectionStringValue))
                 connectionString = connectionStringValue;
         }
-
-        Logger.LogInformation($"Получены настройки: A: {A}, B: {B}, Period: {period}, ConnectionString: {connectionString}");
+        Logger.LogInformation($"Получены настройки: domain: {domain} A: {A}, B: {B}, Period: {period}, ConnectionString: {connectionString}");
+        return true;
     }
 
-    [PluginMethod(PluginConstants.UserWebAPI, "GetABC", "")]
-    //атрибут определяет url для вызова метода, в данном случае http://{ip:port Датаменеджера}/GetABC
+    //выполнение АВС-анализа через пост-запрос
+    [PluginMethod(PluginConstants.UserWebAPI, "GetABC", "Выполнение ABC-анализа по post-запросу")]
     [MethodPost("GetABC")]
     public RawRestResult GetABC(PostRequest<string> request)
     {
-        Logger.LogInformation("Вызван GetABC");
-        
+        domain = request.Body;
+        Logger.LogInformation("GetABC(): started");
+
         string resultString = InternalGetABC();
 
         RawRestResult result = new RawRestResult();
@@ -68,11 +77,12 @@ public class ABCPlugin
         else
             result.Body = resultString;
 
+        Logger.LogInformation("GetABC(): finished");
         return result;
     }
 
-    [PluginMethod(PluginConstants.UserWebAPI, "GetABC", "")]
-    //атрибут определяет url для вызова метода, в данном случае http://{ip:port Датаменеджера}/PrintABC
+    //вывод всей АВС-категории ОХ в логи
+    [PluginMethod(PluginConstants.UserWebAPI, "PrintABC", "Вывод ABC-классификации в логи ABC")]
     [MethodPost("PrintABC")]
     public RawRestResult PrintABC(PostRequest<string> request)
     {
@@ -80,8 +90,7 @@ public class ABCPlugin
         foreach (DictionaryItem? item in items)
         {
             AbcClassification abc = item as AbcClassification;
-            Logger.LogInformation($"SKU: {abc.SKU.Item.Name}, ABC class: {abc.AbcClass}");
-
+            Logger.LogInformation($"SKU: {abc.SKU.Item.Name}, ABC class: {abc.AbcClass}, Date Of Analysis: {abc.DateOfAnalysis}, Period Start/End: {abc.PeriodStart} / {abc.PeriodEnd}");
         }
         RawRestResult result = new RawRestResult();
         result.ResultCode = 200;
@@ -91,26 +100,33 @@ public class ABCPlugin
     }
 
 
-    //атрибут обозначает, что данный метод будет доступен, как метод плагина
-    //PluginConstants.UserWebAPI озночает, что данные метод будет вызываться через WebApi (например: Postman)
+    //регламентное выполнение АВС-анализа
     [PluginMethod(PluginConstants.RegularOperation, nameof(ReglamentGetABC), "Регламентное выполнение ABC анализа")]
     public void ReglamentGetABC()
     {
-        InternalGetABC();
+        Logger.LogInformation("ReglamentGetAbc(): started");
+        string domain = ExecutionContextHelper.DomainId.ToString();
+        Logger.LogInformation($"ReglamentGetAbc(): домен - {domain}");
+        Logger.LogInformation($"{InternalGetABC()}");
+        Logger.LogInformation("ReglamentGetAbc(): finished");
     }
 
+    //выполнение АВС-анализа
     public string InternalGetABC()
     {
         Logger.LogInformation($"{nameof(ABCPlugin)} started");
-        getParameters();
+
+        if (!getParameters()) return ("APCPlugin: finished");
+
         ABCQuery aBCQuery = new ABCQuery();
         aBCQuery.Logger = Logger;
         aBCQuery.DictionaryManager = DictionaryManager;
-        List<ABC> list = aBCQuery.ReadDataBase(A, B, period, connectionString);
+
+        List<ABC> list = aBCQuery.ReadDataBase(A, B, period, connectionString, domain);
         aBCQuery.WriteDataBase(list, connectionString);
         aBCQuery.WriteToDictionary(list);
+
         Logger.LogInformation($"{nameof(ABCPlugin)} finished");
         return ($"Обработано {list.Count} записей");
     }
-
 }
