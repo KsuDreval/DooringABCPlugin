@@ -13,8 +13,7 @@ using WMS5.Infrastructure.Services;
 
 namespace DooringABCPlugin;
 
-
-[PluginClass("1.0.57")]
+[PluginClass("1.0.61")]
 [SpecificNodePlugin(ComponentTypes.DataManager)]
 [SpecificNodePlugin(ComponentTypes.WHEventService)]
 public class ABCPlugin
@@ -43,7 +42,7 @@ public class ABCPlugin
 
         if (args == null)
         {
-            Logger.LogError("gatParameters(): не указаны настройки");
+            Logger.LogError("getParameters(): не указаны настройки");
             return false;
         }
         if (args is not null)
@@ -107,7 +106,8 @@ public class ABCPlugin
         Logger.LogInformation("ReglamentGetAbc(): started");
         string domain = ExecutionContextHelper.DomainId.ToString();
         Logger.LogInformation($"ReglamentGetAbc(): домен - {domain}");
-        Logger.LogInformation($"{InternalGetABC()}");
+        string result = InternalGetABC();
+        Logger.LogInformation($"{result}");
         Logger.LogInformation("ReglamentGetAbc(): finished");
     }
 
@@ -116,7 +116,7 @@ public class ABCPlugin
     {
         Logger.LogInformation($"{nameof(ABCPlugin)} started");
 
-        if (!getParameters()) return ("APCPlugin: finished");
+        if (getParameters() == false) return ("APCPlugin: finished");
 
         ABCQuery aBCQuery = new ABCQuery();
         aBCQuery.Logger = Logger;

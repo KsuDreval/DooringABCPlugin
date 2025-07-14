@@ -4,6 +4,7 @@ using WMS5.CoreBase.Extensions;
 using WMS5.CoreBase.Interfaces.Services;
 using WMS5.DataModel.Dictionaries.Storage;
 using WMS5.DataModelBase.Base;
+using WMS5.Infrastructure.Helpers;
 
 namespace DooringABCPlugin;
 
@@ -160,8 +161,11 @@ values (default, @CommodityName, @TotalQuantity, @QuantityPercentage, @Cumulativ
             {
                 AbcClassification abc = (AbcClassification)(DictionaryManager.GetByCode(WMSType.GetMaster<AbcClassification>(), item.skuUuid));
                 AbcClassification abcClone = new AbcClassification();
-                abc.CloneTo(abcClone);
-                if (abcClone == null)
+                if (abc != null)
+                {
+                    abc.CloneTo(abcClone);
+                }
+                else
                 {
                     abcClone = new AbcClassification();
                     abcClone.UUID = Guid.NewGuid();
@@ -171,8 +175,10 @@ values (default, @CommodityName, @TotalQuantity, @QuantityPercentage, @Cumulativ
                 abcClone.AbcClass = item.abcCategory;
                 abcClone.PeriodStart = item.periodStart;
                 abcClone.PeriodEnd = item.periodEnd.ToDateTime(TimeOnly.MinValue);
+                abcClone.Domain = Guid.Parse(item.skuDomain);
                 abcClone.SKU = new DictionaryRef<SKU>(Guid.Parse(item.skuUuid));
                 DictionaryManager.CreateOrUpdate(WMSType.GetMaster<AbcClassification>(), abcClone);
+
             }
         }
         catch (Exception ex)
