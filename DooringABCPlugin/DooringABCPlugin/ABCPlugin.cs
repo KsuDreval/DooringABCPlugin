@@ -1,7 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
 using WMS5.CoreBase.Interfaces.Services;
-using WMS5.DataModel.Dictionaries.Storage;
-using WMS5.DataModelBase.Base;
 using WMS5.Infrastructure.Attributes;
 using WMS5.Infrastructure.Attributes.RestMethodAttribute;
 using WMS5.Infrastructure.DataStructures.Request;
@@ -11,18 +9,24 @@ using WMS5.Infrastructure.Helpers;
 using WMS5.Infrastructure.Services;
 
 
-namespace DooringABCPlugin;
+namespace DoringABCPlugin;
 
-[PluginClass("1.0.61")]
+/// <summary>
+/// Плагин для выполнения АВС-анализа и записи результатов в таблицу в БД и справочник
+/// </summary>
+/// <remarks>LOG-1190</remarks>
+/// <author>k.dreval@logareon.ru</author>
+
+[PluginClass("1.0.0")]
 [SpecificNodePlugin(ComponentTypes.DataManager)]
 [SpecificNodePlugin(ComponentTypes.WHEventService)]
 public class ABCPlugin
 {
     //строка для подключения
-    private string connectionString = "Host=192.168.200.13;Port=5432;Database=DataMartDocker2;Username=postgres;Password=postgres;";
-    private double A = 0.85;
-    private double B = 0.7;
-    private int period = 7;
+    private string connectionString;
+    private double A;
+    private double B;
+    private int period;
     private string domain;
 
     [Autowire]
@@ -77,24 +81,6 @@ public class ABCPlugin
             result.Body = resultString;
 
         Logger.LogInformation("GetABC(): finished");
-        return result;
-    }
-
-    //вывод всей АВС-категории ОХ в логи
-    [PluginMethod(PluginConstants.UserWebAPI, "PrintABC", "Вывод ABC-классификации в логи ABC")]
-    [MethodPost("PrintABC")]
-    public RawRestResult PrintABC(PostRequest<string> request)
-    {
-        var items = DictionaryManager.GetItems(WMSType.GetMaster<AbcClassification>());
-        foreach (DictionaryItem? item in items)
-        {
-            AbcClassification abc = item as AbcClassification;
-            Logger.LogInformation($"SKU: {abc.SKU.Item.Name}, ABC class: {abc.AbcClass}, Date Of Analysis: {abc.DateOfAnalysis}, Period Start/End: {abc.PeriodStart} / {abc.PeriodEnd}");
-        }
-        RawRestResult result = new RawRestResult();
-        result.ResultCode = 200;
-        result.Body = "OK";
-
         return result;
     }
 

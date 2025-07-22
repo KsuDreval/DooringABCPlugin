@@ -4,9 +4,8 @@ using WMS5.CoreBase.Extensions;
 using WMS5.CoreBase.Interfaces.Services;
 using WMS5.DataModel.Dictionaries.Storage;
 using WMS5.DataModelBase.Base;
-using WMS5.Infrastructure.Helpers;
 
-namespace DooringABCPlugin;
+namespace DoringABCPlugin;
 
 public class ABC
 {
