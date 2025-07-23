@@ -23,11 +23,10 @@ namespace DoringABCPlugin;
 public class ABCPlugin
 {
     //строка для подключения
-    private string connectionString;
-    private double A;
-    private double B;
-    private int period;
-    private string domain;
+    private string _connectionString;
+    private double _A = 0.8;
+    private double _B = 0.95;
+    private int _period;
 
     [Autowire]
     public IDictionaryManagerResolver DictionaryManager { get; set; }
@@ -38,81 +37,110 @@ public class ABCPlugin
     [Autowire]
     public ILogger<ABCPlugin> Logger { get; set; }
 
-    //Получение настроек плагина
-    private bool getParameters()
+    /// <summary>
+    /// Получение настроек плагина с UI
+    /// </summary>
+    /// <param name="domain">
+    /// Домен для получения настроек
+    /// </param>
+    /// <returns>
+    /// Возвращает False, если настройки не указаны или указаны неверно
+    /// </returns>
+    private bool GetParameters(string domain)
     {
         ExecutionContextHelper.DomainId = Guid.Parse(domain);
         Dictionary<string, string> args = PluginRepository.GetPluginConfig("ABCPlugin");
 
         if (args == null)
         {
-            Logger.LogError("getParameters(): не указаны настройки");
+            Logger.LogError("GetParameters(): не указаны настройки");
             return false;
         }
-        if (args is not null)
-        { 
-            if (args.TryGetValue(nameof(A), out string strA) && double.TryParse(strA, out double AValue))
-                A = AValue;
-            if (args.TryGetValue(nameof(B), out string strB) && double.TryParse(strB, out double BValue))
-                B = BValue;
-            if (args.TryGetValue(nameof(period), out string strPeriod) && int.TryParse(strPeriod, out int periodValue))
-                period = periodValue;
-            if (args.TryGetValue(nameof(connectionString), out string connectionStringValue))
-                connectionString = connectionStringValue;
+        else
+        {
+            if (args.TryGetValue("A", out string strA) && double.TryParse(strA, out double AValue))
+                _A = AValue;
+            if (args.TryGetValue("B", out string strB) && double.TryParse(strB, out double BValue))
+                _B = BValue;
+            if (args.TryGetValue("period", out string strPeriod) && int.TryParse(strPeriod, out int periodValue))
+                _period = periodValue;
+            else
+            {
+                Logger.LogError("GetParameters(): не удалось получить период");
+                return false;
+            }
+            if (args.TryGetValue("connectionString", out string connectionStringValue))
+                _connectionString = connectionStringValue;
+            else
+            {
+                Logger.LogError("GetParameters(): не удалось получить строку подключения");
+                return false;
+            }
         }
-        Logger.LogInformation($"Получены настройки: domain: {domain} A: {A}, B: {B}, Period: {period}, ConnectionString: {connectionString}");
+        Logger.LogDebug($"Получены настройки: domain: {domain} A: {_A}, B: {_B}, Period: {_period}, ConnectionString: {_connectionString}");
         return true;
     }
 
-    //выполнение АВС-анализа через пост-запрос
+    /// <summary>
+    /// Вызов АВС-анализа через пост-запрос
+    /// http://{ip-адрес сервера}:{порт ДМ-а}/GetABC
+    /// </summary>
+    /// <param name="request"></param>
+    /// <returns></returns>
     [PluginMethod(PluginConstants.UserWebAPI, "GetABC", "Выполнение ABC-анализа по post-запросу")]
     [MethodPost("GetABC")]
     public RawRestResult GetABC(PostRequest<string> request)
     {
-        domain = request.Body;
+        string domain = request.Body;
         Logger.LogInformation("GetABC(): started");
 
-        string resultString = InternalGetABC();
+        string resultString = InternalGetABC(domain);
 
         RawRestResult result = new RawRestResult();
         result.ResultCode = 200;
-        if (Logger == null) result.Body = "No Logger";
-        else
-            result.Body = resultString;
+        result.Body = resultString;
 
         Logger.LogInformation("GetABC(): finished");
         return result;
     }
 
 
-    //регламентное выполнение АВС-анализа
+    /// <summary>
+    /// Вызов АВС-анализа через регламентную операцию
+    /// </summary>
     [PluginMethod(PluginConstants.RegularOperation, nameof(ReglamentGetABC), "Регламентное выполнение ABC анализа")]
     public void ReglamentGetABC()
     {
         Logger.LogInformation("ReglamentGetAbc(): started");
         string domain = ExecutionContextHelper.DomainId.ToString();
-        Logger.LogInformation($"ReglamentGetAbc(): домен - {domain}");
-        string result = InternalGetABC();
+        Logger.LogDebug($"ReglamentGetAbc(): домен - {domain}");
+        string result = InternalGetABC(domain);
         Logger.LogInformation($"{result}");
         Logger.LogInformation("ReglamentGetAbc(): finished");
     }
 
-    //выполнение АВС-анализа
-    public string InternalGetABC()
+    /// <summary>
+    /// Метод вызывает методы класса ABCQuery для выполнения АВС-анализа и записи данных в таблицу БД и соответствующий справочник
+    /// </summary>
+    /// <param name="domain">Домен, в котором выполняется анализ</param>
+    /// <returns>
+    /// В случае успешного выполнение возвращает строку с количеством обработанных записей
+    /// </returns>
+    public string InternalGetABC(string domain)
     {
         Logger.LogInformation($"{nameof(ABCPlugin)} started");
 
-        if (getParameters() == false) return ("APCPlugin: finished");
+        if (GetParameters(domain) == false) return ("APCPlugin: finished");
 
         ABCQuery aBCQuery = new ABCQuery();
         aBCQuery.Logger = Logger;
         aBCQuery.DictionaryManager = DictionaryManager;
 
-        List<ABC> list = aBCQuery.ReadDataBase(A, B, period, connectionString, domain);
-        aBCQuery.WriteDataBase(list, connectionString);
-        aBCQuery.WriteToDictionary(list);
+        List<ABC> listABC = aBCQuery.ReadDataBase(_A, _B, _period, _connectionString, domain);
+        aBCQuery.WriteDataBase(listABC, _connectionString);
+        aBCQuery.WriteToDictionary(listABC);
 
         Logger.LogInformation($"{nameof(ABCPlugin)} finished");
-        return ($"Обработано {list.Count} записей");
+        return ($"Обработано {listABC.Count} записей");
     }
 }
