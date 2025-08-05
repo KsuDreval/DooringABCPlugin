@@ -24,8 +24,8 @@ public class ABCPlugin
 {
     //строка для подключения
     private string _connectionString;
-    private double _A = 0.8;
-    private double _B = 0.95;
+    private double _a = 0.8;
+    private double _b = 0.95;
     private int _period;
 
     [Autowire]
@@ -46,6 +46,7 @@ public class ABCPlugin
     /// <returns>
     /// Возвращает False, если настройки не указаны или указаны неверно
     /// </returns>
+
     private bool GetParameters(string domain)
     {
         ExecutionContextHelper.DomainId = Guid.Parse(domain);
@@ -59,9 +60,9 @@ public class ABCPlugin
         else
         {
             if (args.TryGetValue("A", out string strA) && double.TryParse(strA, out double AValue))
-                _A = AValue;
+                _a = AValue;
             if (args.TryGetValue("B", out string strB) && double.TryParse(strB, out double BValue))
-                _B = BValue;
+                _b = BValue;
             if (args.TryGetValue("period", out string strPeriod) && int.TryParse(strPeriod, out int periodValue))
                 _period = periodValue;
             else
@@ -77,7 +78,7 @@ public class ABCPlugin
                 return false;
             }
         }
-        Logger.LogDebug($"Получены настройки: domain: {domain} A: {_A}, B: {_B}, Period: {_period}, ConnectionString: {_connectionString}");
+        Logger.LogDebug($"Получены настройки: domain: {domain} A: {_a}, B: {_b}, Period: {_period}, ConnectionString: {_connectionString}");
         return true;
     }
 
@@ -87,6 +88,7 @@ public class ABCPlugin
     /// </summary>
     /// <param name="request"></param>
     /// <returns></returns>
+
     [PluginMethod(PluginConstants.UserWebAPI, "GetABC", "Выполнение ABC-анализа по post-запросу")]
     [MethodPost("GetABC")]
     public RawRestResult GetABC(PostRequest<string> request)
@@ -104,10 +106,10 @@ public class ABCPlugin
         return result;
     }
 
-
     /// <summary>
     /// Вызов АВС-анализа через регламентную операцию
     /// </summary>
+
     [PluginMethod(PluginConstants.RegularOperation, nameof(ReglamentGetABC), "Регламентное выполнение ABC анализа")]
     public void ReglamentGetABC()
     {
@@ -120,27 +122,25 @@ public class ABCPlugin
     }
 
     /// <summary>
-    /// Метод вызывает методы класса ABCQuery для выполнения АВС-анализа и записи данных в таблицу БД и соответствующий справочник
+    /// Метод вызывает GetParameters для получения настроек и метод класса ABCQuery для выполнения АВС-анализа
     /// </summary>
     /// <param name="domain">Домен, в котором выполняется анализ</param>
     /// <returns>
     /// В случае успешного выполнение возвращает строку с количеством обработанных записей
     /// </returns>
+
     public string InternalGetABC(string domain)
     {
         Logger.LogInformation($"{nameof(ABCPlugin)} started");
 
         if (GetParameters(domain) == false) return ("APCPlugin: finished");
 
-        ABCQuery aBCQuery = new ABCQuery();
-        aBCQuery.Logger = Logger;
-        aBCQuery.DictionaryManager = DictionaryManager;
-
-        List<ABC> listABC = aBCQuery.ReadDataBase(_A, _B, _period, _connectionString, domain);
-        aBCQuery.WriteDataBase(listABC, _connectionString);
-        aBCQuery.WriteToDictionary(listABC);
+        ABCQuery abcQuery = new ABCQuery();
+        abcQuery.Logger = Logger;
+        abcQuery.DictionaryManager = DictionaryManager;
+        int result = abcQuery.ABCAnalisysExecution(_a, _b, _period, _connectionString, domain);
 
         Logger.LogInformation($"{nameof(ABCPlugin)} finished");
-        return ($"Обработано {listABC.Count} записей");
+        return ($"Обработано {result} записей");
     }
 }

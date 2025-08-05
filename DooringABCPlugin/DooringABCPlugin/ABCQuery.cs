@@ -93,7 +93,7 @@ public class ABCQuery
                     SELECT SUM(TotalQuantity) AS total
                     FROM combined_data
                     WHERE was_shipped = 1
-                ),-- Рассчитываем доли и кумулятивную долю только для отгруженных товаров
+					),-- Рассчитываем доли и кумулятивную долю только для отгруженных товаров
                 quantity_analysis AS (
                     SELECT 
                         cd.CommodityName,
@@ -152,19 +152,31 @@ public class ABCQuery
     string insertString = @"insert into abc_analyze 
 values (default, @CommodityName, @TotalQuantity, @QuantityPercentage, @CumulativePercentage, @ABCCategory, @SKUUUID, @SKUDomain, @PeriodStart, @PeriodEnd)";
 
+    /// <summary>
+    /// Метод для выполнения АВС-анализа и записи данных в БД и справочник
+    /// </summary>
+
+    public int ABCAnalisysExecution(double A, double B, int period, string connectionString, string domain)
+    {
+        List<ABC> listABC = ReadDataBase(A, B, period, connectionString, domain);
+        WriteDataBase(listABC, connectionString);
+        WriteToDictionary(listABC);
+        return listABC.Count;
+    }
 
     /// <summary>
     /// Метод для записи информации в справочник
     /// </summary>
-    /// <param name="abc_analyzeRowsList">Список строк для записи</param>
-    public void WriteToDictionary(List<ABC> abc_analyzeRowsList)
+    /// <param name="abcAnalyzeRowsList">Список строк для записи</param>
+
+    private void WriteToDictionary(List<ABC> abcAnalyzeRowsList)
     {
-        Logger.LogDebug($"WriteToDictionary(): start. Список содержит {abc_analyzeRowsList.Count} элементов");
+        Logger.LogDebug($"WriteToDictionary(): start. Список содержит {abcAnalyzeRowsList.Count} элементов");
         try
         {
-            foreach (ABC abc_analyzeRow in abc_analyzeRowsList)
+            foreach (ABC abcAnalyzeRow in abcAnalyzeRowsList)
             {
-                AbcClassification abc = (AbcClassification)(DictionaryManager.GetByCode(WMSType.GetMaster<AbcClassification>(), abc_analyzeRow.skuUuid));
+                AbcClassification abc = (AbcClassification)(DictionaryManager.GetByCode(WMSType.GetMaster<AbcClassification>(), abcAnalyzeRow.skuUuid));
                 AbcClassification abcClone = new AbcClassification();
                 if (abc != null)
                 {
@@ -173,16 +185,16 @@ values (default, @CommodityName, @TotalQuantity, @QuantityPercentage, @Cumulativ
                 else
                 {
                     abcClone.UUID = Guid.NewGuid();
-                    abcClone.Code = abc_analyzeRow.skuUuid;
+                    abcClone.Code = abcAnalyzeRow.skuUuid;
                 }
                 abcClone.DateOfAnalysis = DateOfAnalysis;
-                abcClone.AbcClass = abc_analyzeRow.abcCategory;
-                abcClone.PeriodStart = abc_analyzeRow.periodStart;
-                abcClone.PeriodEnd = abc_analyzeRow.periodEnd.ToDateTime(TimeOnly.MinValue);
-                abcClone.Domain = Guid.Parse(abc_analyzeRow.skuDomain);
-                abcClone.SKU = new DictionaryRef<SKU>(Guid.Parse(abc_analyzeRow.skuUuid));
+                abcClone.AbcClass = abcAnalyzeRow.abcCategory;
+                abcClone.PeriodStart = abcAnalyzeRow.periodStart;
+                abcClone.PeriodEnd = abcAnalyzeRow.periodEnd.ToDateTime(TimeOnly.MinValue);
+                abcClone.Domain = Guid.Parse(abcAnalyzeRow.skuDomain);
+                abcClone.SKU = new DictionaryRef<SKU>(Guid.Parse(abcAnalyzeRow.skuUuid));
                 DictionaryManager.CreateOrUpdate(WMSType.GetMaster<AbcClassification>(), abcClone);
-                
+
             }
         }
         catch (Exception ex)
@@ -195,30 +207,34 @@ values (default, @CommodityName, @TotalQuantity, @QuantityPercentage, @Cumulativ
     /// <summary>
     /// Метод для записи информации в таблицу в БД
     /// </summary>
-    /// <param name="abc_analyzeRowsList">Массив строк для записи в БД</param>
+    /// <param name="abcAnalyzeRowsList">Массив строк для записи в БД</param>
     /// <param name="connectionString">Строка подключения к БД</param>
-    public void WriteDataBase(List<ABC> abc_analyzeRowsList, string connectionString)
+
+    private void WriteDataBase(List<ABC> abcAnalyzeRowsList, string connectionString)
     {
-        Logger.LogDebug($"WriteDataBase(): start  Список содержит {abc_analyzeRowsList.Count} элементов");
+        Logger.LogDebug($"WriteDataBase(): start  Список содержит {abcAnalyzeRowsList.Count} элементов");
         try
         {
             using (NpgsqlConnection conn = new NpgsqlConnection(connectionString))
             {
-                foreach (ABC abc_analyzeRow in abc_analyzeRowsList)
+                conn.Open();
+                foreach (ABC abcAnalyzeRow in abcAnalyzeRowsList)
                 {
                     try
                     {
-                        NpgsqlCommand cmd = new NpgsqlCommand(insertString, conn);
-                        cmd.Parameters.AddWithValue("@CommodityName", abc_analyzeRow.commodityName);
-                        cmd.Parameters.AddWithValue("@TotalQuantity", abc_analyzeRow.totalQuantity);
-                        cmd.Parameters.AddWithValue("@QuantityPercentage", abc_analyzeRow.quantityPercentage);
-                        cmd.Parameters.AddWithValue("@CumulativePercentage", abc_analyzeRow.cumulativePercentage);
-                        cmd.Parameters.AddWithValue("@ABCCategory", abc_analyzeRow.abcCategory);
-                        cmd.Parameters.AddWithValue("@SKUUUID", abc_analyzeRow.skuUuid);
-                        cmd.Parameters.AddWithValue("@SKUDomain", abc_analyzeRow.skuDomain);
-                        cmd.Parameters.AddWithValue("@PeriodStart", abc_analyzeRow.periodStart);
-                        cmd.Parameters.AddWithValue("@PeriodEnd", abc_analyzeRow.periodEnd);
-                        cmd.ExecuteNonQuery();
+                        using (NpgsqlCommand cmd = new NpgsqlCommand(insertString, conn))
+                        {
+                            cmd.Parameters.AddWithValue("@CommodityName", abcAnalyzeRow.commodityName);
+                            cmd.Parameters.AddWithValue("@TotalQuantity", abcAnalyzeRow.totalQuantity);
+                            cmd.Parameters.AddWithValue("@QuantityPercentage", abcAnalyzeRow.quantityPercentage);
+                            cmd.Parameters.AddWithValue("@CumulativePercentage", abcAnalyzeRow.cumulativePercentage);
+                            cmd.Parameters.AddWithValue("@ABCCategory", abcAnalyzeRow.abcCategory);
+                            cmd.Parameters.AddWithValue("@SKUUUID", abcAnalyzeRow.skuUuid);
+                            cmd.Parameters.AddWithValue("@SKUDomain", abcAnalyzeRow.skuDomain);
+                            cmd.Parameters.AddWithValue("@PeriodStart", abcAnalyzeRow.periodStart);
+                            cmd.Parameters.AddWithValue("@PeriodEnd", abcAnalyzeRow.periodEnd);
+                            cmd.ExecuteNonQuery();
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -234,7 +250,6 @@ values (default, @CommodityName, @TotalQuantity, @QuantityPercentage, @Cumulativ
         Logger.LogDebug("WriteDataBase(): end");
 
     }
-
     /// <summary>
     /// Метод для чтения таблицы, полученной sql-запросом
     /// </summary>
@@ -244,35 +259,38 @@ values (default, @CommodityName, @TotalQuantity, @QuantityPercentage, @Cumulativ
     /// <param name="connectionString">Строка для подключения к БД, к которой делается запрос</param>
     /// <param name="domainStr">Домен, в котором выполняется анализ</param>
     /// <returns>Возвращает массив, в котором содержатся все строки, полученные через запрос</returns>
-    public List<ABC> ReadDataBase(double A, double B, int period, string connectionString, string domainStr)
+
+    private List<ABC> ReadDataBase(double A, double B, int period, string connectionString, string domainStr)
     {
         Logger.LogDebug($"ReadDataBase(): start A = {A}, B = {B}, period = {period}, connection string = {connectionString}");
 
-        List<ABC> abc_analyzeRowsList = new List<ABC>();
+        List<ABC> abcAnalyzeRowsList = new List<ABC>();
         DateOfAnalysis = DateTime.Now;
         try
         {
             using (NpgsqlConnection conn = new NpgsqlConnection(connectionString))
             {
+                conn.Open();
                 string preparedString = string.Format(queryString, period, A.ToString(CultureInfo.CreateSpecificCulture("en-GB")), B.ToString(CultureInfo.CreateSpecificCulture("en-GB")), A.ToString(CultureInfo.CreateSpecificCulture("en-GB")), B.ToString(CultureInfo.CreateSpecificCulture("en-GB")), domainStr);
                 Logger.LogDebug($"Выполняю запрос {preparedString}");
-                NpgsqlCommand cmd = new NpgsqlCommand(preparedString, conn);
-
-                using (NpgsqlDataReader reader = cmd.ExecuteReader())
+                using (NpgsqlCommand cmd = new NpgsqlCommand(preparedString, conn))
                 {
-                    while (reader.Read())
+                    using (NpgsqlDataReader reader = cmd.ExecuteReader())
                     {
-                        ABC abc = new ABC();
-                        abc.commodityName = reader["CommodityName"].ToString();
-                        abc.totalQuantity = Convert.ToDouble(reader["TotalQuantity"].ToString());
-                        abc.quantityPercentage = Convert.ToDouble(reader["QuantityPercentage"].ToString());
-                        abc.cumulativePercentage = Convert.ToDouble(reader["CumulativePercentage"].ToString());
-                        abc.abcCategory = reader["ABCCategory"].ToString();
-                        abc.skuUuid = reader["SKUUUID"].ToString();
-                        abc.skuDomain = reader["SKUDomain"].ToString();
-                        abc.periodStart = DateTime.Parse(reader["PeriodStart"].ToString());
-                        abc.periodEnd = DateOnly.FromDateTime(DateTime.Parse(reader["PeriodEnd"].ToString()));
-                        abc_analyzeRowsList.Add(abc);
+                        while (reader.Read())
+                        {
+                            ABC abc = new ABC();
+                            abc.commodityName = reader["CommodityName"].ToString();
+                            abc.totalQuantity = Convert.ToDouble(reader["TotalQuantity"].ToString());
+                            abc.quantityPercentage = Convert.ToDouble(reader["QuantityPercentage"].ToString());
+                            abc.cumulativePercentage = Convert.ToDouble(reader["CumulativePercentage"].ToString());
+                            abc.abcCategory = reader["ABCCategory"].ToString();
+                            abc.skuUuid = reader["SKUUUID"].ToString();
+                            abc.skuDomain = reader["SKUDomain"].ToString();
+                            abc.periodStart = DateTime.Parse(reader["PeriodStart"].ToString());
+                            abc.periodEnd = DateOnly.FromDateTime(DateTime.Parse(reader["PeriodEnd"].ToString()));
+                            abcAnalyzeRowsList.Add(abc);
+                        }
                     }
                 }
             }
@@ -282,6 +300,6 @@ values (default, @CommodityName, @TotalQuantity, @QuantityPercentage, @Cumulativ
             Logger.LogError(ex, "Error in function ReadDataBase()");
         }
         Logger.LogDebug($"ReadDataBase(): end");
-        return abc_analyzeRowsList;
+        return abcAnalyzeRowsList;
     }
 }
